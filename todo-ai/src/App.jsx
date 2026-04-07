@@ -78,7 +78,7 @@ export default function App() {
 
   const fetchTasks = async () => {
     try {
-      const res = await axios.get("http://127.0.0.1:5000/tasks");
+      const res = await axios.get(`${import.meta.env.VITE_API_URL}/tasks`);
       setTasks(res.data);
     } catch (e) {
       console.error("Failed fetching tasks", e);
@@ -88,13 +88,15 @@ export default function App() {
   };
 
   useEffect(() => {
-    fetchTasks();
-  }, []);
+    if (user) {
+      fetchTasks();
+    }
+  }, [user]);
 
   const addTask = async ({ title, dueDate }) => {
     try {
       const newOrder = tasks.length > 0 ? Math.max(...tasks.map(t => t.order || 0)) + 1 : 0;
-      const res = await axios.post("http://127.0.0.1:5000/add", { title, dueDate, order: newOrder });
+      const res = await axios.post(`${import.meta.env.VITE_API_URL}/add`, { title, dueDate, order: newOrder });
       setTasks(prev => [...prev, res.data]);
     } catch (e) {
       console.error("Failed adding task", e);
@@ -108,7 +110,7 @@ export default function App() {
     // Optimistic UI update
     setTasks(prev => prev.map(t => t.id === id ? { ...t, completed: !t.completed } : t));
     try {
-      await axios.put(`http://127.0.0.1:5000/update/${id}`, { completed: !task.completed });
+      await axios.put(`${import.meta.env.VITE_API_URL}/update/${id}`, { completed: !task.completed });
     } catch (e) {
       console.error("Failed toggling", e);
       // Revert if failed
@@ -119,7 +121,7 @@ export default function App() {
   const deleteTask = async (id) => {
     setTasks(prev => prev.filter(t => t.id !== id));
     try {
-      await axios.delete(`http://127.0.0.1:5000/delete/${id}`);
+      await axios.delete(`${import.meta.env.VITE_API_URL}/delete/${id}`);
     } catch (e) {
       console.error("Failed deleting", e);
       fetchTasks(); // Revert on fail
@@ -144,7 +146,7 @@ export default function App() {
     
     // Update API specifically for the moved one
     try {
-      await axios.put(`http://127.0.0.1:5000/update/${active.id}`, { order: newIndex });
+      await axios.put(`${import.meta.env.VITE_API_URL}/update/${active.id}`, { order: newIndex });
     } catch (ignore) {}
   };
 
