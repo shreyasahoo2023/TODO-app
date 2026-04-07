@@ -185,7 +185,7 @@ export default function App() {
       <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} />
 
       <main className="flex-1 flex flex-col min-w-0 md:ml-64">
-        <Navbar theme={theme} setTheme={setTheme} searchQuery={searchQuery} setSearchQuery={setSearchQuery} />
+        <Navbar theme={theme} setTheme={setTheme} searchQuery={searchQuery} setSearchQuery={setSearchQuery} user={user} onLogout={logout} />
 
         <div className="p-6 max-w-4xl w-full mx-auto flex-1 relative min-h-[500px]">
           <AnimatePresence mode="wait">

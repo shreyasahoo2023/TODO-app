@@ -2,6 +2,7 @@ import os
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 from pymongo import MongoClient
+import certifi
 from bson.objectid import ObjectId
 from dotenv import load_dotenv
 from google.oauth2 import id_token
@@ -22,7 +23,7 @@ CORS(app, origins=[
 
 # 🔗 MongoDB (REMOVE hardcoded fallback in production)
 MONGO_URI = os.getenv("MONGO_URI")
-client = MongoClient(MONGO_URI)
+client = MongoClient(MONGO_URI, tlsCAFile=certifi.where())
 db = client["todo_db"]
 
 tasks_collection = db["tasks"]
