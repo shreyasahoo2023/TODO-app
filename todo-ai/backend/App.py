@@ -3,7 +3,6 @@ from flask import Flask, request, jsonify
 from flask_cors import CORS
 from pymongo import MongoClient
 import certifi
-from bson.objectid import ObjectId
 from dotenv import load_dotenv
 from google.oauth2 import id_token
 from google.auth.transport import requests as google_requests
@@ -11,17 +10,18 @@ from werkzeug.security import generate_password_hash, check_password_hash
 import jwt
 import datetime
 
+# ---------------- LOAD ENV ----------------
 load_dotenv()
 
 app = Flask(__name__)
 
-# ✅ Allow frontend domain (IMPORTANT for production)
+# ---------------- CORS ----------------
 CORS(app, origins=[
     "http://localhost:5173",
     "https://shreya-todo.vercel.app"
 ])
 
-# 🔗 MongoDB (REMOVE hardcoded fallback in production)
+# ---------------- DATABASE ----------------
 MONGO_URI = os.getenv("MONGO_URI")
 client = MongoClient(MONGO_URI, tlsCAFile=certifi.where())
 db = client["todo_db"]
@@ -29,6 +29,7 @@ db = client["todo_db"]
 tasks_collection = db["tasks"]
 users_collection = db["users"]
 
+# ---------------- ENV VARIABLES ----------------
 GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID")
 JWT_SECRET = os.getenv("JWT_SECRET", "fallback-secret")
 
@@ -37,7 +38,7 @@ JWT_SECRET = os.getenv("JWT_SECRET", "fallback-secret")
 def home():
     return "Backend Running 🚀"
 
-# ---------------- GOOGLE AUTH ----------------
+# ---------------- GOOGLE AUTH (FIXED) ----------------
 @app.route('/auth/google', methods=['POST'])
 def auth_google():
     data = request.json
@@ -47,16 +48,25 @@ def auth_google():
         return jsonify({"error": "No token"}), 400
 
     try:
-        response = google_requests.Request()
-        idinfo = id_token.verify_oauth2_token(token, response, GOOGLE_CLIENT_ID)
+        # ✅ VERIFY GOOGLE ID TOKEN (CORRECT WAY)
+        idinfo = id_token.verify_oauth2_token(
+            token,
+            google_requests.Request(),
+            GOOGLE_CLIENT_ID
+        )
 
         email = idinfo.get("email")
         name = idinfo.get("name")
         picture = idinfo.get("picture")
 
+        # Save or update user
         users_collection.update_one(
             {"email": email},
-            {"$set": {"email": email, "name": name, "picture": picture}},
+            {"$set": {
+                "email": email,
+                "name": name,
+                "picture": picture
+            }},
             upsert=True
         )
 
@@ -69,7 +79,9 @@ def auth_google():
         })
 
     except Exception as e:
-        return jsonify({"error": str(e)}), 401
+        print("Google Auth Error:", e)
+        return jsonify({"error": "Invalid Google token"}), 401
+
 
 # ---------------- LOGIN ----------------
 @app.route('/auth/login', methods=['POST'])
@@ -80,7 +92,7 @@ def login():
 
     user = users_collection.find_one({"email": email})
 
-    if not user or not check_password_hash(user["password_hash"], password):
+    if not user or not check_password_hash(user.get("password_hash", ""), password):
         return jsonify({"error": "Invalid credentials"}), 401
 
     token = jwt.encode({
@@ -88,7 +100,11 @@ def login():
         "exp": datetime.datetime.utcnow() + datetime.timedelta(hours=24)
     }, JWT_SECRET, algorithm="HS256")
 
-    return jsonify({"user": {"email": email}, "token": token})
+    return jsonify({
+        "user": {"email": email},
+        "token": token
+    })
+
 
 # ---------------- REGISTER ----------------
 @app.route('/auth/register', methods=['POST'])
@@ -99,7 +115,7 @@ def register():
     password = data.get("password")
 
     if users_collection.find_one({"email": email}):
-        return jsonify({"error": "User exists"}), 409
+        return jsonify({"error": "User already exists"}), 409
 
     users_collection.insert_one({
         "email": email,
@@ -107,9 +123,10 @@ def register():
         "password_hash": generate_password_hash(password)
     })
 
-    return jsonify({"message": "Registered"})
+    return jsonify({"message": "Registered successfully"})
+
 
 # ---------------- RUN ----------------
 if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 5000))  # ✅ REQUIRED for Render
+    port = int(os.environ.get("PORT", 5000))
     app.run(host="0.0.0.0", port=port)
